@@ -1,0 +1,79 @@
+version: "3.7"
+
+services:  
+  #application
+  app:
+    build: 
+      args:
+        user: weslley
+        uid: 1000
+      context: ./containers/php
+      dockerfile: Dockerfile
+    image: weslleybernardes/app
+    container_name: app
+    depends_on:
+      - db
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    networks:
+      - app-network
+    volumes:
+      - ./app:/var/www
+    links:
+      - db
+  
+  web:
+    build:
+      context: ./containers/nginx
+      dockerfile: Dockerfile
+    image: weslleybernardes/nginx
+    container_name: nginx
+    networks:
+      - app-network
+    ports: 
+      - "8080:80"
+    volumes:
+      - ./config/nginx/:/etc/nginx/conf.d/
+    volumes_from:
+    - app
+
+  #MySQL Service
+  db:
+    image: mysql:${DB_VERSION}
+    container_name: db
+    restart: unless-stopped
+    tty: true
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - ./data/mysql:/var/lib/mysql/
+      - ./data/sql:/docker-entrypoint-initdb.d
+      - ./config/mysql/mycustom.cnf:/etc/mysql/conf.d/custom.cnf
+    networks:
+      - app-network
+    ports:
+      - "3306:3306"
+
+    
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    links:
+      - db
+    ports:
+      - 80:80
+    environment:
+      - PMA_ARBITRARY=1
+    networks:
+      - app-network
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge
+
+
